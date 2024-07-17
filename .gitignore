@@ -1,0 +1,11 @@
+*.zip
+*.docx
+*.pdf
+*.xlsx
+.vs/
+Debug/
+*.sln
+*.vcxproj
+*.filters
+*.user
+*.csv

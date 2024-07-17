@@ -1,0 +1,84 @@
+#include <iostream>
+#include <mpi.h>
+
+double funkcja(double x, double A, double B, double C) {
+    return A * x * x + B * x + C;
+}
+
+double calka_prostokatna(double A, double B, double C, double a, double b, int n) {
+    double dx = (b - a) / n;
+    double suma = 0.0;
+
+    for (int i = 0; i < n; i++) {
+        double x = a + i * dx;
+        suma += funkcja(x, A, B, C);
+    }
+
+    return suma * dx;
+}
+
+double calka_trapezowa(double A, double B, double C, double a, double b, int n) {
+    double dx = (b - a) / n;
+    double suma = 0.0;
+
+    for (int i = 0; i < n; i++) {
+        double x1 = a + i * dx;
+        double x2 = a + ((double)i + 1) * dx;
+        suma += (funkcja(x1, A, B, C) + funkcja(x2, A, B, C)) / 2.0;
+    }
+
+    return suma * dx;
+}
+
+int main() {
+    MPI_Init(NULL, NULL);
+    int rank, size;
+    double A, B, C, a, b;
+    int n;
+    double wynik_lokalny, wynik_globalny;
+    double czas_start, czas_stop, czas_lokalny, czas_globalny;
+
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+    if (rank == 0) {
+        std::cout << "Podaj a: "; std::cin >> A;
+        std::cout << "Podaj b: "; std::cin >> B;
+        std::cout << "Podaj c: "; std::cin >> C;
+        std::cout << "\nPodaj granice calkowania:\nA: "; std::cin >> a;
+        std::cout << "B: "; std::cin >> b;
+        std::cout << "Podaj liczbe podzialow n: "; std::cin >> n;
+    }
+
+    MPI_Bcast(&A, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&B, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&C, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&a, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&b, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&n, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+    double a1 = a + ((((double)b - (double)a) / (double)size) * (double)rank);
+    std::cout << "rank " << rank << " A1: " << a1 << std::endl;
+    double b1 = a + ((((double)b - (double)a) / (double)size) * ((double)rank + 1));
+    std::cout <<"rank " << rank << " B1: " << b1 << std::endl;
+
+    czas_start = MPI_Wtime();
+    wynik_lokalny = calka_trapezowa(A, B, C, a1, b1, n/(double)size);
+    czas_stop = MPI_Wtime();
+
+    MPI_Reduce(&wynik_lokalny, &wynik_globalny, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+
+    if (rank == 0) {
+        std::cout << "\nWynik calkowania: " << wynik_globalny << std::endl;
+        std::cout << "Czas pojedynczego procesu: " << czas_stop - czas_start << " sekund" << std::endl;
+
+        czas_start = MPI_Wtime();
+        calka_trapezowa(A, B, C, a, b, n);
+        czas_stop = MPI_Wtime();
+        std::cout << "Czas sekw: " << czas_stop - czas_start << " sekund" << std::endl;
+    }
+
+    MPI_Finalize();
+
+    return 0;
+}
